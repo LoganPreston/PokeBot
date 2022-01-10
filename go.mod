@@ -1,4 +1,4 @@
-module weatherBot
+module PokeBot
 
 go 1.17
 

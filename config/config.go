@@ -18,10 +18,10 @@ type configStruct struct {
 }
 
 func ReadConfig() error {
-	fmt.Println("Reading config file")
+	//fmt.Println("Reading config file")
 	file, err := ioutil.ReadFile("./config.json")
 
-	fmt.Println(string(file))
+	//fmt.Println(string(file))
 	err = json.Unmarshal(file, &config)
 
 	if err != nil{

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"weatherBot/bot"
-	"weatherBot/config"
+	"PokeBot/bot"
+	"PokeBot/config"
 )
 
 func main(){
