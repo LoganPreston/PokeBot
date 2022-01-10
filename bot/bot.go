@@ -2,7 +2,7 @@ package bot
 
 import (
 	"fmt"
-	"goDiscordBot/config"
+	"weatherBot/config"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -39,7 +39,7 @@ func Start() {
 }
 
 func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.Id == BotId {
+	if m.Author.ID == BotId {
 		return
 	}
 

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"goDiscordBot/bot"
-	"goDiscordBot/config"
+	"weatherBot/bot"
+	"weatherBot/config"
 )
 
 func main(){
