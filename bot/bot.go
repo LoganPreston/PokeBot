@@ -68,7 +68,7 @@ func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	//variable declaration
+	//vars
 	var (
 		pokeUrl string
 		pokemon pokemonInfo
