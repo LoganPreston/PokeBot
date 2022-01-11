@@ -16,12 +16,12 @@ import (
 var BotId string
 var goBot *discordgo.Session
 
-type PokemonInfo struct {
+type pokemonInfo struct {
 	Name string `json:"name"`
-	Sprites SpriteUrls `json:sprites`
+	Sprites spriteUrls `json:sprites`
 }
 
-type SpriteUrls struct {
+type spriteUrls struct {
 	DefaultFront string `json:"front_default"`
 	FemaleFront string `json:"front_female"`
 	ShinyFront string `json:"front_shiny"`
@@ -71,7 +71,7 @@ func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
 	//variable declaration
 	var (
 		pokeUrl string
-		pokemon PokemonInfo
+		pokemon pokemonInfo
 		pokemonBytes []byte
 		pokeImage *discordgo.MessageEmbedImage
 		pokeResponse *discordgo.MessageEmbed
@@ -130,7 +130,7 @@ func getUrlInfo(url string) []byte {
 	return responseData
 }
 
-func getPokeImage(pokeInfo PokemonInfo) *discordgo.MessageEmbedImage {
+func getPokeImage(pokeInfo pokemonInfo) *discordgo.MessageEmbedImage {
 
 	pokeImage := &discordgo.MessageEmbedImage{}
 	chance := 4096
