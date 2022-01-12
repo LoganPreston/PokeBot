@@ -81,13 +81,12 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	//handle pokemon messages
 	if m.Content == config.BotPrefix+"pokemon" {
 		reply = replyToPokemonMessage()
-		return
 	}
 
 	//reply with a switch, handle embedded and simple messages
 	switch message := reply.(type) {
-	case discordgo.MessageEmbed:
-		s.ChannelMessageSendEmbed(m.ChannelID, &message)
+	case *discordgo.MessageEmbed:
+		s.ChannelMessageSendEmbed(m.ChannelID, message)
 	case string:
 		s.ChannelMessageSend(m.ChannelID, message)
 	default:
