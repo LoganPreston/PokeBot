@@ -34,18 +34,28 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	var reply interface{}
-	var content string = m.Content[1:] //cut off prefix
+	var (
+		reply   interface{}
+		err     error
+		content string = m.Content[1:] //cut off prefix
+	)
 
 	//switch based on the content of the message/request. Can cause bot to do nothing
 	switch content {
 	//handle pokemon messages
 	case "pokemon":
-		reply = replyToPokemonMessage()
+		reply, err = replyToPokemonMessage()
 	case "botInfo":
 		reply = "I was created by Logan Preston to practice Go. I don't do much outside of Pokemon..."
 	//do nothing, just leave
 	default:
+		return
+	}
+
+	//if we broke somewhere, politely tell user sorry, but inform dev of break
+	if err != nil {
+		reply = "I'm sorry, I failed somewhere along the way. Try again"
+		fmt.Println(err.Error())
 		return
 	}
 

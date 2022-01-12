@@ -55,13 +55,16 @@ type langInfo struct {
 }
 
 //process a request for a pokemon, returns an embedded message about a random pokemon
-func replyToPokemonMessage() *discordgo.MessageEmbed {
+func replyToPokemonMessage() (*discordgo.MessageEmbed, error) {
 
 	var (
+		pokemonBytes []byte
+		desc         string
 		pokemon      pokemonInfo
 		pokeImage    *discordgo.MessageEmbedImage
 		pokeResponse *discordgo.MessageEmbed
 		pokeDesc     strings.Builder
+		err          error
 	)
 
 	//setup for rng later
@@ -73,8 +76,13 @@ func replyToPokemonMessage() *discordgo.MessageEmbed {
 	var pokeUrl string = getPokeUrl(minPokeId, maxPokeId)
 
 	//get response from web url and parse data
-	var pokemonBytes []byte = getUrlInfo(pokeUrl)
-	json.Unmarshal(pokemonBytes, &pokemon)
+	if pokemonBytes, err = getUrlInfo(pokeUrl); err != nil {
+		return &discordgo.MessageEmbed{}, err
+	}
+
+	if err = json.Unmarshal(pokemonBytes, &pokemon); err != nil {
+		return &discordgo.MessageEmbed{}, err
+	}
 
 	//get poke image
 	var shiny bool = isShiny(chanceOfShiny)
@@ -88,8 +96,11 @@ func replyToPokemonMessage() *discordgo.MessageEmbed {
 	var weightLbs float64 = kgsToLbs(weightKg)
 	var heightFt, heightIn int = mToFtIn(heightM)
 
-	//get poke description/flavor text
-	pokeDesc.WriteString(getPokeDesc(pokemon.Species.Url))
+	//get poke description/flavor text. Currently assumes writestring succeeds
+	if desc, err = getPokeDesc(pokemon.Species.Url); err != nil {
+		return &discordgo.MessageEmbed{}, err
+	}
+	pokeDesc.WriteString(desc)
 	pokeDesc.WriteString(fmt.Sprintf("\nWeight: %v kgs / %v lbs", weightKg, weightLbs))
 	pokeDesc.WriteString(fmt.Sprintf("\nHeight: %v m / %v ft %v in", heightM, heightFt, heightIn))
 
@@ -102,7 +113,7 @@ func replyToPokemonMessage() *discordgo.MessageEmbed {
 		//also have footer available
 	}
 
-	return pokeResponse
+	return pokeResponse, nil
 }
 
 //identify a random pokemon by ID between min and max, return a link to that pokemon
@@ -115,7 +126,7 @@ func getPokeUrl(minPokeId, maxPokeId int) string {
 
 //get a byte slice from a given url, uses ReadAll so don't get a large file.
 //Likely need to unpack data after with json.Unmarshal or similar
-func getUrlInfo(url string) []byte {
+func getUrlInfo(url string) ([]byte, error) {
 	var (
 		response     *http.Response
 		responseData []byte
@@ -123,17 +134,15 @@ func getUrlInfo(url string) []byte {
 	)
 	//get the initial info
 	if response, err = http.Get(url); err != nil {
-		fmt.Println(err.Error())
-		return []byte{}
+		return []byte{}, err
 	}
 
 	//read the response
 	if responseData, err = ioutil.ReadAll(response.Body); err != nil {
-		fmt.Println(err.Error())
-		return []byte{}
+		return []byte{}, err
 	}
 
-	return responseData
+	return responseData, nil
 }
 
 //determine if a pokemon is shiny or not by rolling a die of a specific chance. 1/chance makes a shiny.
@@ -157,14 +166,20 @@ func getPokeImage(pokeInfo pokemonInfo, shiny bool) *discordgo.MessageEmbedImage
 
 //Get a pokemon description from a given url. Gets info, parses, and returns.
 //Return a string of the description for the mon.
-func getPokeDesc(pokeSpeciesUrl string) string {
+func getPokeDesc(pokeSpeciesUrl string) (string, error) {
 	var (
-		species speciesInfo
-		desc    string
+		speciesBytes []byte
+		species      speciesInfo
+		desc         string
+		err          error
 	)
 
-	var speciesBytes []byte = getUrlInfo(pokeSpeciesUrl)
-	json.Unmarshal(speciesBytes, &species)
+	if speciesBytes, err = getUrlInfo(pokeSpeciesUrl); err != nil {
+		return "", err
+	}
+	if err = json.Unmarshal(speciesBytes, &species); err != nil {
+		return "", err
+	}
 
 	//go in reverse order, since more recent entries are more readable
 	//clean forwards way: for _, entry := range species.TextEntries {}
@@ -176,7 +191,7 @@ func getPokeDesc(pokeSpeciesUrl string) string {
 			break
 		}
 	}
-	return desc
+	return desc, nil
 }
 
 //random int between min and max, bounds are INCLUSIVE
