@@ -5,6 +5,7 @@ import (
 	"PokeBot/config"
 	"github.com/bwmarrin/discordgo"
 	"math/rand"
+	"math"
 	"strconv"
 	"time"
 	"io/ioutil"
@@ -13,14 +14,22 @@ import (
 	"strings"
 )
 
+//env vars
 var BotId string
 var goBot *discordgo.Session
 
+//these structs are nested, top is outer and next two are within it
+
+//basic info, and where to find sprites/other info
 type pokemonInfo struct {
 	Name string `json:"name"`
+	Height float64 `json:"height"`
+	Weight float64 `json:"weight"`
 	Sprites spriteUrls `json:sprites`
+	Species speciesUrls `json:"species"`
 }
 
+//basic sprite url links
 type spriteUrls struct {
 	DefaultFront string `json:"front_default"`
 	FemaleFront string `json:"front_female"`
@@ -28,6 +37,28 @@ type spriteUrls struct {
 	ShinyFemaleFront string `json:"front_shiny_female"`
 }
 
+//basic species url info. Note, name is redundantly stored
+type speciesUrls struct {
+	Name string `json:"name"`
+	Url string `json:"url"`
+}
+
+//these structs are nested, top is more outer, and are unrelated to above
+type speciesInfo struct {
+	TextEntries []entryInfo `json:"flavor_text_entries"`
+}
+
+type entryInfo struct {
+	FlavorText string `json:"flavor_text"`
+	Language langInfo `json:"language"`
+}
+
+type langInfo struct {
+	Name string `json:"name"`
+	url string `json:"url"`
+}
+
+//driver, starts up the bot and writes when it's ready.
 func Start() {
 	//init the bot
 	goBot, err := discordgo.New("Bot " + config.Token)
@@ -75,6 +106,10 @@ func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
 		pokemonBytes []byte
 		pokeImage *discordgo.MessageEmbedImage
 		pokeResponse *discordgo.MessageEmbed
+		pokeDesc string
+		heightM, weightKg, weightLbs float64
+		heightFt, heightIn int
+		shiny bool
 	)
 
 	rand.Seed(time.Now().UnixNano())
@@ -87,12 +122,29 @@ func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
 	json.Unmarshal(pokemonBytes, &pokemon)
 
 	//get poke image
-	pokeImage = getPokeImage(pokemon)
+	shiny = isShiny() //rng!
+	pokeImage = getPokeImage(pokemon, shiny)
+	if shiny {
+		pokemon.Name += " (Shiny)"
+	}
+
+	//set up weight and height 
+	weightKg = pokemon.Weight / 10
+	weightLbs = kgsToLbs(weightKg)
+	heightM = pokemon.Height / 10
+	heightFt, heightIn = mToFtIn(heightM)
+
+	//get poke description/flavor text
+	pokeDesc = getPokeDesc(pokemon.Species.Url)
+	pokeDesc += fmt.Sprintf("\nWeight: %v kgs / %v lbs", weightKg, weightLbs)
+	pokeDesc += fmt.Sprintf("\nHeight: %v m / %v ft %v in", heightM, heightFt, heightIn)
 
 	//craft a response
 	pokeResponse = &discordgo.MessageEmbed{
 		Image: pokeImage,
 		Title: strings.Title(pokemon.Name),
+		Description: pokeDesc,
+		//also have footer
 	}
 
 	//reply
@@ -130,17 +182,67 @@ func getUrlInfo(url string) []byte {
 	return responseData
 }
 
-func getPokeImage(pokeInfo pokemonInfo) *discordgo.MessageEmbedImage {
-
-	pokeImage := &discordgo.MessageEmbedImage{}
+func isShiny() bool {
 	chance := 4096
+	return rand.Intn(chance) == 0
+}
 
-	//generate random num, 1/chance is the possibility 
-	if rand.Intn(chance) == 0 {
+func getPokeImage(pokeInfo pokemonInfo, shiny bool) *discordgo.MessageEmbedImage {
+	pokeImage := &discordgo.MessageEmbedImage{}
+
+	if shiny {
 		pokeImage.URL = pokeInfo.Sprites.ShinyFront
 	} else {
 		pokeImage.URL = pokeInfo.Sprites.DefaultFront
 	}
 
+	if pokeImage.URL == "" {
+		fmt.Println("Couldn't find sprite for this mon")
+		fmt.Println("Is shiny? ", shiny)
+		fmt.Println(pokeInfo)
+	}
+
 	return pokeImage
+}
+
+func getPokeDesc(pokeSpeciesUrl string) string {
+	var (
+		species speciesInfo
+		desc string
+	)
+
+	speciesBytes := getUrlInfo(pokeSpeciesUrl)
+	json.Unmarshal(speciesBytes, &species)
+
+	//go in reverse order, since more recent entries are more readable
+	//clean forwards way: for _, entry := range species.TextEntries {}
+	for i := len(species.TextEntries) - 1; i >= 0; i-- {
+		entry := species.TextEntries[i]
+
+		if isEnglish(entry) {
+			desc = entry.FlavorText
+			break
+		}
+	}
+	return desc
+}
+
+func isEnglish(entry entryInfo) bool {
+	return entry.Language.Name == "en"
+}
+
+//convert kg to lbs
+func kgsToLbs(weightKg float64) float64 {
+	return roundTo(weightKg * 2.204623, 2)
+}
+
+//shamelessly stolen from stack overflow https://stackoverflow.com/questions/52048218/round-all-decimal-points-in-golang#52048478
+func roundTo(n float64, decimals uint32) float64 {
+	return math.Round(n * math.Pow(10, float64(decimals))) / math.Pow(10, float64(decimals))
+}
+
+//convert height in M to height in ft and inches. Not super accurate.
+func mToFtIn(heightM float64) (int, int) {
+	heightInches := int(heightM * 100 / 2.54)
+	return heightInches / 12, heightInches % 12
 }
