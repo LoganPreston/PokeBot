@@ -58,105 +58,117 @@ type langInfo struct {
 	Url  string `json:"url"`
 }
 
+//Call to initialize the bot's ID so it doesn't reply to itself
 func BotSetup(s *discordgo.Session) {
 	//set the user info so the bot doesn't self reply later
-	u, err := s.User("@me")
-	if err != nil {
+	if u, err := s.User("@me"); err != nil {
 		fmt.Println(err.Error())
 		return
+	} else {
+		BotId = u.ID
 	}
-	BotId = u.ID
 	return
 }
 
+//Handle to use to process messages
 func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	//don't let it respond to itself
 	if m.Author.ID == BotId {
 		return
 	}
 
-	//if the message is not the trigger, exit fast
-	if m.Content != config.BotPrefix+"pokemon" {
+	var reply interface{}
+	//handle pokemon messages
+	if m.Content == config.BotPrefix+"pokemon" {
+		reply = replyToPokemonMessage()
 		return
 	}
 
-	//vars
+	//reply with a switch, handle embedded and simple messages
+	switch message := reply.(type) {
+	case discordgo.MessageEmbed:
+		s.ChannelMessageSendEmbed(m.ChannelID, &message)
+	case string:
+		s.ChannelMessageSend(m.ChannelID, message)
+	default:
+		fmt.Printf("Unknown message type %T received\n", message)
+	}
+
+}
+
+//process a request for a pokemon, returns an embedded message about a random pokemon
+func replyToPokemonMessage() *discordgo.MessageEmbed {
+
 	var (
-		pokeUrl                      string
-		pokemon                      pokemonInfo
-		pokemonBytes                 []byte
-		pokeImage                    *discordgo.MessageEmbedImage
-		pokeResponse                 *discordgo.MessageEmbed
-		pokeDesc                     string
-		heightM, weightKg, weightLbs float64
-		heightFt, heightIn           int
-		shiny                        bool
+		pokemon      pokemonInfo
+		pokeImage    *discordgo.MessageEmbedImage
+		pokeResponse *discordgo.MessageEmbed
+		pokeDesc     strings.Builder
 	)
 
+	//setup for rng later
 	rand.Seed(time.Now().UnixNano())
+	minPokeId, maxPokeId := 1, 898 //range of pokemon to pick from
+	chanceOfShiny := 4096          //chance of a shiny is 1/chanceOfShiny
 
 	//get pokemon data
-	pokeUrl = getPokeUrl()
+	var pokeUrl string = getPokeUrl(minPokeId, maxPokeId)
 
 	//get response from web url and parse data
-	pokemonBytes = getUrlInfo(pokeUrl)
+	var pokemonBytes []byte = getUrlInfo(pokeUrl)
 	json.Unmarshal(pokemonBytes, &pokemon)
 
 	//get poke image
-	shiny = isShiny() //rng!
+	var shiny bool = isShiny(chanceOfShiny)
 	pokeImage = getPokeImage(pokemon, shiny)
 	if shiny {
 		pokemon.Name += " (Shiny)"
 	}
 
 	//set up weight and height
-	weightKg = pokemon.Weight / 10
-	weightLbs = kgsToLbs(weightKg)
-	heightM = pokemon.Height / 10
-	heightFt, heightIn = mToFtIn(heightM)
+	var weightKg, heightM float64 = pokemon.Weight / 10, pokemon.Height / 10
+	var weightLbs float64 = kgsToLbs(weightKg)
+	var heightFt, heightIn int = mToFtIn(heightM)
 
 	//get poke description/flavor text
-	pokeDesc = getPokeDesc(pokemon.Species.Url)
-	pokeDesc += fmt.Sprintf("\nWeight: %v kgs / %v lbs", weightKg, weightLbs)
-	pokeDesc += fmt.Sprintf("\nHeight: %v m / %v ft %v in", heightM, heightFt, heightIn)
+	pokeDesc.WriteString(getPokeDesc(pokemon.Species.Url))
+	pokeDesc.WriteString(fmt.Sprintf("\nWeight: %v kgs / %v lbs", weightKg, weightLbs))
+	pokeDesc.WriteString(fmt.Sprintf("\nHeight: %v m / %v ft %v in", heightM, heightFt, heightIn))
 
 	//craft a response
 	pokeResponse = &discordgo.MessageEmbed{
 		Image:       pokeImage,
 		Title:       strings.Title(pokemon.Name),
-		Description: pokeDesc,
+		Description: pokeDesc.String(),
 		URL:         "https://pokemondb.net/pokedex/" + pokemon.Name,
-		//also have footer
+		//also have footer available
 	}
 
-	//reply
-	s.ChannelMessageSendEmbed(m.ChannelID, pokeResponse)
+	return pokeResponse
 }
 
-func getPokeUrl() string {
+//identify a random pokemon by ID between min and max, return a link to that pokemon
+func getPokeUrl(minPokeId, maxPokeId int) string {
 	//generate random num within the range of pokemon and append to url
-	var (
-		minPokeId, maxPokeId, pokeId int
-		pokeUrl                      string
-	)
-
-	minPokeId, maxPokeId = 1, 898
-	pokeId = rand.Intn(maxPokeId-minPokeId) + minPokeId
-	pokeUrl = "https://pokeapi.co/api/v2/pokemon/" + strconv.Itoa(pokeId)
-	return pokeUrl
+	pokeId := getRandomIntBetween(minPokeId, maxPokeId)
+	urlBase := "https://pokeapi.co/api/v2/pokemon/"
+	return urlBase + strconv.Itoa(pokeId)
 }
 
 func getUrlInfo(url string) []byte {
+	var (
+		response     *http.Response
+		responseData []byte
+		err          error
+	)
 	//get the initial info
-	response, err := http.Get(url)
-	if err != nil {
+	if response, err = http.Get(url); err != nil {
 		fmt.Println(err.Error())
 		return []byte{}
 	}
 
 	//read the response
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
+	if responseData, err = ioutil.ReadAll(response.Body); err != nil {
 		fmt.Println(err.Error())
 		return []byte{}
 	}
@@ -164,29 +176,27 @@ func getUrlInfo(url string) []byte {
 	return responseData
 }
 
-func isShiny() bool {
-	chance := 4096
-	return rand.Intn(chance) == 0
+//determine if a pokemon is shiny or not by rolling a die of a specific chance. 1/chance makes a shiny.
+func isShiny(chance int) bool {
+	return getRandomIntBetween(0, chance) == 0
 }
 
+//pull out the pokemon image and create a struct for the image and allow handling of shiny vs non-shiny
+//returns a struct with the image
 func getPokeImage(pokeInfo pokemonInfo, shiny bool) *discordgo.MessageEmbedImage {
-	pokeImage := &discordgo.MessageEmbedImage{}
+	pokeImage := &discordgo.MessageEmbedImage{
+		URL: pokeInfo.Sprites.DefaultFront,
+	}
 
 	if shiny {
 		pokeImage.URL = pokeInfo.Sprites.ShinyFront
-	} else {
-		pokeImage.URL = pokeInfo.Sprites.DefaultFront
-	}
-
-	if pokeImage.URL == "" {
-		fmt.Println("Couldn't find sprite for this mon")
-		fmt.Println("Is shiny? ", shiny)
-		fmt.Println(pokeInfo)
 	}
 
 	return pokeImage
 }
 
+//Get a pokemon description from a given url. Gets info, parses, and returns.
+//Return a string of the description for the mon.
 func getPokeDesc(pokeSpeciesUrl string) string {
 	var (
 		species speciesInfo
@@ -209,6 +219,12 @@ func getPokeDesc(pokeSpeciesUrl string) string {
 	return desc
 }
 
+//random int between min and max, bounds are INCLUSIVE
+func getRandomIntBetween(min, max int) int {
+	return rand.Intn(max-min) + min
+}
+
+//simple check to see if the entry is in english.
 func isEnglish(entry entryInfo) bool {
 	return entry.Language.Name == "en"
 }
@@ -218,13 +234,15 @@ func kgsToLbs(weightKg float64) float64 {
 	return roundTo(weightKg*2.204623, 2)
 }
 
-//shamelessly stolen from stack overflow https://stackoverflow.com/questions/52048218/round-all-decimal-points-in-golang#52048478
+//round n to given decimal
+//shamelessly stolen from stack overflow
+//	 https://stackoverflow.com/questions/52048218/round-all-decimal-points-in-golang#52048478
 func roundTo(n float64, decimals uint32) float64 {
 	return math.Round(n*math.Pow(10, float64(decimals))) / math.Pow(10, float64(decimals))
 }
 
-//convert height in M to height in ft and inches. Not super accurate.
+//convert height in M to height in ft and inches. Not super accurate, only integer values
 func mToFtIn(heightM float64) (int, int) {
-	heightInches := int(heightM * 100 / 2.54)
-	return heightInches / 12, heightInches % 12
+	heightInches := int(heightM * 100 / 2.54)   //loss of precision, but small
+	return heightInches / 12, heightInches % 12 //more loss of precision, only ints.
 }

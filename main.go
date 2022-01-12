@@ -14,20 +14,20 @@ import (
 
 func main() {
 
-	//env vars
+	var (
+		goBot *discordgo.Session
+		err   error
+	)
 
-	var goBot *discordgo.Session
 	//call into reader code and handle error
-	err := config.ReadConfig()
-	if err != nil {
+	if err = config.ReadConfig(); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
 	//start up the bot
 	//init the bot
-	goBot, err = discordgo.New("Bot " + config.Token)
-	if err != nil {
+	if goBot, err = discordgo.New("Bot " + config.Token); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
@@ -36,12 +36,12 @@ func main() {
 	bot.BotSetup(goBot)
 	goBot.AddHandler(bot.MessageHandler)
 
-	//open the bot
-	err = goBot.Open()
-	if err != nil {
+	//open the bot. Defer the close so we don't forget to close gracefully
+	if err = goBot.Open(); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
+	defer goBot.Close()
 
 	fmt.Println("Bot is live!")
 
@@ -50,8 +50,7 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
-	//graceful cleanup
-	fmt.Println("Bot is shutting down...")
-	goBot.Close()
+	//graceful cleanup, deferred close is run before return.
+	fmt.Println("\nBot is shutting down...")
 	return
 }
