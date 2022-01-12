@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"PokeBot/bot"
 	"PokeBot/config"
@@ -13,6 +15,7 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 
 	var (
 		goBot *discordgo.Session
@@ -21,6 +24,12 @@ func main() {
 
 	//call into reader code and handle error
 	if err = config.ReadConfig(); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	//call into trivia code before initializing the bot
+	if err = bot.ReadTrivia(); err != nil {
 		fmt.Println(err.Error())
 		return
 	}

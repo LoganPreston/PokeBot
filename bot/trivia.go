@@ -2,11 +2,14 @@ package bot
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 )
 
 var QuestionAry []fact
+var (
+	question string
+	answer   string
+)
 
 type trivia struct {
 	Facts []fact `json:"trivia"`
@@ -25,13 +28,11 @@ func ReadTrivia() error {
 	)
 	//Read the configuration file, token and prefix. Handle the err
 	if file, err = ioutil.ReadFile("./trivia.json"); err != nil {
-		fmt.Println(err.Error())
 		return err
 	}
 
 	//unmarshall the file into the main struct. handle err.
 	if err = json.Unmarshal(file, &info); err != nil {
-		fmt.Println(err.Error())
 		return err
 	}
 
@@ -41,9 +42,15 @@ func ReadTrivia() error {
 }
 
 func replyToTriviaQuestionMessage() string {
-	return ""
+	randIdx := getRandomIntBetween(0, len(QuestionAry))
+	question = QuestionAry[randIdx].Question
+	answer = QuestionAry[randIdx].Answer
+	return question
 }
 
 func replyToTriviaAnswerMessage() string {
-	return ""
+	if answer == "" {
+		answer = "Try prompting a question first!"
+	}
+	return answer
 }

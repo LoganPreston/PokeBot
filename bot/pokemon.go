@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -68,7 +67,6 @@ func replyToPokemonMessage() (*discordgo.MessageEmbed, error) {
 	)
 
 	//setup for rng later
-	rand.Seed(time.Now().UnixNano())
 	minPokeId, maxPokeId := 1, 898 //range of pokemon to pick from
 	chanceOfShiny := 4096          //chance of a shiny is 1/chanceOfShiny
 

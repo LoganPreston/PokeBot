@@ -45,7 +45,13 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	//handle pokemon messages
 	case "pokemon":
 		reply, err = replyToPokemonMessage()
-	case "botInfo":
+	case "triviaQuestion":
+		reply = replyToTriviaQuestionMessage()
+	case "triviaAnswer":
+		reply = replyToTriviaAnswerMessage()
+	case "commands":
+		reply = fmt.Sprintf("I support: \n\t!pokemon\n\t!triviaQuestion\n\t!triviaAnswer\n\t!info")
+	case "info":
 		reply = "I was created by Logan Preston to practice Go. I don't do much outside of Pokemon..."
 	//do nothing, just leave
 	default:
@@ -56,7 +62,6 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if err != nil {
 		reply = "I'm sorry, I failed somewhere along the way. Try again"
 		fmt.Println(err.Error())
-		return
 	}
 
 	//reply with a switch, handle embedded and simple messages
