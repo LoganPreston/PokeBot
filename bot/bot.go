@@ -2,8 +2,6 @@ package bot
 
 import (
 	"fmt"
-	"PokeBot/config"
-	"github.com/bwmarrin/discordgo"
 	"math/rand"
 	"math"
 	"strconv"
@@ -12,6 +10,13 @@ import (
 	"net/http"
 	"encoding/json"
 	"strings"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"PokeBot/config"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 //env vars
@@ -86,9 +91,18 @@ func Start() {
 	}
 
 	fmt.Println("Bot is live!")
+
+	//wait until we get a ctrl+C or some other interrupt
+	sc := make(chan os.Signal, 1)
+        signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+        <-sc
+
+	//graceful cleanup
+	fmt.Println("Bot is shutting down...")
+        goBot.Close()
 }
 
-func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
+func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	//don't let it respond to itself
 	if m.Author.ID == BotId {
 		return
@@ -144,6 +158,7 @@ func messageHandler( s *discordgo.Session, m *discordgo.MessageCreate) {
 		Image: pokeImage,
 		Title: strings.Title(pokemon.Name),
 		Description: pokeDesc,
+		URL: "https://pokemondb.net/pokedex/"+pokemon.Name,
 		//also have footer
 	}
 
