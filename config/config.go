@@ -6,10 +6,7 @@ import (
 	"io/ioutil"
 )
 
-var (
-	config           *configStruct
-	Token, BotPrefix string
-)
+var Token, BotPrefix string
 
 type configStruct struct {
 	Token     string `json:"Token"`
@@ -20,8 +17,9 @@ type configStruct struct {
 //currently provides Token and BotPrefix
 func ReadConfig() error {
 	var (
-		file []byte
-		err  error
+		config *configStruct
+		file   []byte
+		err    error
 	)
 	//Read the configuration file, token and prefix. Handle the err
 	if file, err = ioutil.ReadFile("./config.json"); err != nil {
