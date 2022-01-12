@@ -77,10 +77,24 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	//make sure first character is the bot's flag
+	if m.Content[:1] != config.BotPrefix {
+		return
+	}
+
 	var reply interface{}
+	var content string = m.Content[1:] //cut off prefix
+
+	//switch based on the content of the message/request. Can cause bot to do nothing
+	switch content {
 	//handle pokemon messages
-	if m.Content == config.BotPrefix+"pokemon" {
+	case "pokemon":
 		reply = replyToPokemonMessage()
+	case "botInfo":
+		reply = "I was created by Logan Preston to practice Go. I don't do much outside of Pokemon..."
+	//do nothing, just leave
+	default:
+		return
 	}
 
 	//reply with a switch, handle embedded and simple messages
@@ -89,10 +103,12 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSendEmbed(m.ChannelID, message)
 	case string:
 		s.ChannelMessageSend(m.ChannelID, message)
+	//log an error, should never be hit
 	default:
 		fmt.Printf("Unknown message type %T received\n", message)
 	}
 
+	return
 }
 
 //process a request for a pokemon, returns an embedded message about a random pokemon
@@ -154,6 +170,8 @@ func getPokeUrl(minPokeId, maxPokeId int) string {
 	return urlBase + strconv.Itoa(pokeId)
 }
 
+//get a byte slice from a given url, uses ReadAll so don't get a large file.
+//Likely need to unpack data after with json.Unmarshal or similar
 func getUrlInfo(url string) []byte {
 	var (
 		response     *http.Response
@@ -202,7 +220,7 @@ func getPokeDesc(pokeSpeciesUrl string) string {
 		desc    string
 	)
 
-	speciesBytes := getUrlInfo(pokeSpeciesUrl)
+	var speciesBytes []byte = getUrlInfo(pokeSpeciesUrl)
 	json.Unmarshal(speciesBytes, &species)
 
 	//go in reverse order, since more recent entries are more readable
