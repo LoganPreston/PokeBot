@@ -1,51 +1,46 @@
 package bot
 
 import (
-	"fmt"
-	"math/rand"
-	"math"
-	"strconv"
-	"time"
-	"io/ioutil"
-	"net/http"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math"
+	"math/rand"
+	"net/http"
+	"strconv"
 	"strings"
-	"os"
-	"os/signal"
-	"syscall"
+	"time"
 
 	"PokeBot/config"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-//env vars
 var BotId string
-var goBot *discordgo.Session
 
 //these structs are nested, top is outer and next two are within it
 
 //basic info, and where to find sprites/other info
 type pokemonInfo struct {
-	Name string `json:"name"`
-	Height float64 `json:"height"`
-	Weight float64 `json:"weight"`
-	Sprites spriteUrls `json:sprites`
+	Name    string      `json:"name"`
+	Height  float64     `json:"height"`
+	Weight  float64     `json:"weight"`
+	Sprites spriteUrls  `json:sprites`
 	Species speciesUrls `json:"species"`
 }
 
 //basic sprite url links
 type spriteUrls struct {
-	DefaultFront string `json:"front_default"`
-	FemaleFront string `json:"front_female"`
-	ShinyFront string `json:"front_shiny"`
+	DefaultFront     string `json:"front_default"`
+	FemaleFront      string `json:"front_female"`
+	ShinyFront       string `json:"front_shiny"`
 	ShinyFemaleFront string `json:"front_shiny_female"`
 }
 
 //basic species url info. Note, name is redundantly stored
 type speciesUrls struct {
 	Name string `json:"name"`
-	Url string `json:"url"`
+	Url  string `json:"url"`
 }
 
 //these structs are nested, top is more outer, and are unrelated to above
@@ -54,76 +49,48 @@ type speciesInfo struct {
 }
 
 type entryInfo struct {
-	FlavorText string `json:"flavor_text"`
-	Language langInfo `json:"language"`
+	FlavorText string   `json:"flavor_text"`
+	Language   langInfo `json:"language"`
 }
 
 type langInfo struct {
 	Name string `json:"name"`
-	url string `json:"url"`
+	url  string `json:"url"`
 }
 
-//driver, starts up the bot and writes when it's ready.
-func Start() {
-	//init the bot
-	goBot, err := discordgo.New("Bot " + config.Token)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
+func BotSetup(s *discordgo.Session) {
 	//set the user info so the bot doesn't self reply later
-	u, err := goBot.User("@me")
+	u, err := s.User("@me")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	BotId = u.ID
-
-	//pass the bot the function to run
-	goBot.AddHandler(messageHandler)
-
-	//open the bot
-	err = goBot.Open()
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	fmt.Println("Bot is live!")
-
-	//wait until we get a ctrl+C or some other interrupt
-	sc := make(chan os.Signal, 1)
-        signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-        <-sc
-
-	//graceful cleanup
-	fmt.Println("Bot is shutting down...")
-        goBot.Close()
+	return
 }
 
-func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	//don't let it respond to itself
 	if m.Author.ID == BotId {
 		return
 	}
 
 	//if the message is not the trigger, exit fast
-	if m.Content != config.BotPrefix + "pokemon" {
+	if m.Content != config.BotPrefix+"pokemon" {
 		return
 	}
 
 	//vars
 	var (
-		pokeUrl string
-		pokemon pokemonInfo
-		pokemonBytes []byte
-		pokeImage *discordgo.MessageEmbedImage
-		pokeResponse *discordgo.MessageEmbed
-		pokeDesc string
+		pokeUrl                      string
+		pokemon                      pokemonInfo
+		pokemonBytes                 []byte
+		pokeImage                    *discordgo.MessageEmbedImage
+		pokeResponse                 *discordgo.MessageEmbed
+		pokeDesc                     string
 		heightM, weightKg, weightLbs float64
-		heightFt, heightIn int
-		shiny bool
+		heightFt, heightIn           int
+		shiny                        bool
 	)
 
 	rand.Seed(time.Now().UnixNano())
@@ -142,7 +109,7 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		pokemon.Name += " (Shiny)"
 	}
 
-	//set up weight and height 
+	//set up weight and height
 	weightKg = pokemon.Weight / 10
 	weightLbs = kgsToLbs(weightKg)
 	heightM = pokemon.Height / 10
@@ -155,10 +122,10 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//craft a response
 	pokeResponse = &discordgo.MessageEmbed{
-		Image: pokeImage,
-		Title: strings.Title(pokemon.Name),
+		Image:       pokeImage,
+		Title:       strings.Title(pokemon.Name),
 		Description: pokeDesc,
-		URL: "https://pokemondb.net/pokedex/"+pokemon.Name,
+		URL:         "https://pokemondb.net/pokedex/" + pokemon.Name,
 		//also have footer
 	}
 
@@ -170,12 +137,12 @@ func getPokeUrl() string {
 	//generate random num within the range of pokemon and append to url
 	var (
 		minPokeId, maxPokeId, pokeId int
-		pokeUrl string
+		pokeUrl                      string
 	)
 
 	minPokeId, maxPokeId = 1, 898
-	pokeId = rand.Intn(maxPokeId - minPokeId) + minPokeId
-	pokeUrl = "https://pokeapi.co/api/v2/pokemon/"+strconv.Itoa(pokeId)
+	pokeId = rand.Intn(maxPokeId-minPokeId) + minPokeId
+	pokeUrl = "https://pokeapi.co/api/v2/pokemon/" + strconv.Itoa(pokeId)
 	return pokeUrl
 }
 
@@ -223,7 +190,7 @@ func getPokeImage(pokeInfo pokemonInfo, shiny bool) *discordgo.MessageEmbedImage
 func getPokeDesc(pokeSpeciesUrl string) string {
 	var (
 		species speciesInfo
-		desc string
+		desc    string
 	)
 
 	speciesBytes := getUrlInfo(pokeSpeciesUrl)
@@ -248,12 +215,12 @@ func isEnglish(entry entryInfo) bool {
 
 //convert kg to lbs
 func kgsToLbs(weightKg float64) float64 {
-	return roundTo(weightKg * 2.204623, 2)
+	return roundTo(weightKg*2.204623, 2)
 }
 
 //shamelessly stolen from stack overflow https://stackoverflow.com/questions/52048218/round-all-decimal-points-in-golang#52048478
 func roundTo(n float64, decimals uint32) float64 {
-	return math.Round(n * math.Pow(10, float64(decimals))) / math.Pow(10, float64(decimals))
+	return math.Round(n*math.Pow(10, float64(decimals))) / math.Pow(10, float64(decimals))
 }
 
 //convert height in M to height in ft and inches. Not super accurate.
