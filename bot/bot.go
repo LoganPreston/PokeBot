@@ -25,7 +25,7 @@ type pokemonInfo struct {
 	Name    string      `json:"name"`
 	Height  float64     `json:"height"`
 	Weight  float64     `json:"weight"`
-	Sprites spriteUrls  `json:sprites`
+	Sprites spriteUrls  `json:"sprites"`
 	Species speciesUrls `json:"species"`
 }
 
@@ -55,7 +55,7 @@ type entryInfo struct {
 
 type langInfo struct {
 	Name string `json:"name"`
-	url  string `json:"url"`
+	Url  string `json:"url"`
 }
 
 func BotSetup(s *discordgo.Session) {
