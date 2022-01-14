@@ -29,15 +29,21 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if m.Content == "" {
+		return
+	}
+
+	//split message into the first char prefix and the rest
+	prefix, content := m.Content[:1], m.Content[1:]
+
 	//make sure first character is the bot's flag
-	if m.Content[:1] != config.BotPrefix {
+	if prefix != config.BotPrefix {
 		return
 	}
 
 	var (
-		reply   interface{}
-		err     error
-		content string = m.Content[1:] //cut off prefix
+		reply interface{}
+		err   error
 	)
 
 	//switch based on the content of the message/request. Can cause bot to do nothing
