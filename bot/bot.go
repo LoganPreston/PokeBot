@@ -46,9 +46,9 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "pokemon":
 		reply, err = replyToPokemonMessage()
 	case "triviaQuestion":
-		reply = replyToTriviaQuestionMessage()
+		reply = replyToTriviaQuestionMessage(m.ChannelID)
 	case "triviaAnswer":
-		reply = replyToTriviaAnswerMessage()
+		reply = replyToTriviaAnswerMessage(m.ChannelID)
 	case "commands":
 		reply = fmt.Sprintf("I support: \n\t!pokemon\n\t!triviaQuestion\n\t!triviaAnswer\n\t!info")
 	case "info":

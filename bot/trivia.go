@@ -8,7 +8,7 @@ import (
 var QuestionAry []fact
 var (
 	question string
-	answer   string
+	answer   = make(map[string]string) //key is passed in.
 )
 
 type trivia struct {
@@ -41,16 +41,16 @@ func ReadTrivia() error {
 	return nil
 }
 
-func replyToTriviaQuestionMessage() string {
+func replyToTriviaQuestionMessage(key string) string {
 	randIdx := getRandomIntBetween(0, len(QuestionAry))
 	question = QuestionAry[randIdx].Question
-	answer = QuestionAry[randIdx].Answer
+	answer[key] = QuestionAry[randIdx].Answer
 	return question
 }
 
-func replyToTriviaAnswerMessage() string {
-	if answer == "" {
-		answer = "Try prompting a question first!"
+func replyToTriviaAnswerMessage(key string) string {
+	if answer[key] == "" {
+		answer[key] = "Try prompting a question first!"
 	}
-	return answer
+	return answer[key]
 }
